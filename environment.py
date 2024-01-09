@@ -22,7 +22,7 @@ class Environment:
         self.signal_generator.reset()
         if self.render_on:
             self.render()
-        return self.get_state()        
+        return self.signal_generator.state.astype(np.complex64).view(np.float32)   
 
     def render(self):
         self.screen.fill((0, 200, 255))
@@ -30,10 +30,6 @@ class Environment:
         self.signal_generator.render()
         pygame.display.flip()
     
-    def get_state(self):
-        state = self.signal_generator.sigbuffer.astype(np.complex64).view(np.float32)
-        return state
-
     def move_agent(self, action):
         
         if action == 1:
@@ -49,12 +45,12 @@ class Environment:
     def step(self, action):
         self.move_agent(action)
         #print('reward', reward)
-        next_state = self.get_state()
+        
 
         self.signal_generator.step()
-        if self.render_on:
-            self.render()
-        
+        # if self.render_on:
+        self.render()
+        next_state = self.signal_generator.state.astype(np.complex64).view(np.float32)
         reward = self.signal_generator.score
         done = self.signal_generator.deaths >= 3
         return reward, next_state, done
@@ -82,7 +78,6 @@ if __name__ == "__main__":
                 flap = 1
             elif event.type == pygame.KEYUP:
                 flap = 0
-
 
         reward, state, done = env.step(flap)
         if done:

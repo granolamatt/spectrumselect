@@ -33,6 +33,7 @@ class SignalSelection:
         self.startpos = horizontal_location
         self.endpos = horizontal_location
         self.endit = False
+        self.scored = False
     
     def render(self, screen, step):
         self.startpos -= step
@@ -49,13 +50,15 @@ class SignalSelection:
         self.endit = True
 
     def calcScore(self, bins):
+        if self.scored:
+            return 0
+        self.scored = True
         timesig = np.fft.ifft(bins,n=len(bins)*2)
         start = len(timesig)//32
         freqsig = np.fft.fft(timesig*np.conj(timesig))[start:len(timesig)//2]
         baud = len(timesig)/(np.argmax(np.abs(freqsig)) + start) / 2
         if baud > 3 or baud < 1:
             return -1
-        
         score = 10 - np.abs(1.3 - baud)
         print("Score is", score)
         
@@ -100,7 +103,6 @@ class SignalGenerator:
         self.sigbuffer[self.N//2:] = np.random.normal(0,1/self.N,self.N//2) + 1j*np.random.normal(0,1/self.N,self.N//2)
         # self.sigbuffer = np.zeros(N, dtype=np.complex64)
         num = np.random.randint(1,20)
-        print("Making",num,"signals")
         for cnt in range(num):
             offset = np.random.randint(20,self.N//4) * 2
             siglen = np.random.randint(20,self.N//64) * 2
@@ -115,6 +117,13 @@ class SignalGenerator:
     def setEnd(self):
         for sel in self.selections:
             sel.end()
+            ss = int(self.pos + sel.startpos*self.avesize)
+            ee = int(self.pos + sel.endpos*self.avesize)
+            ns = sel.calcScore(self.sigbuffer[ss:ee])
+            if ns < 0:
+                self.deaths += 1
+            else:
+                self.score += ns
 
     def aveData(self, samps):
         mag = samps.reshape((-1,self.avesize))
@@ -127,6 +136,9 @@ class SignalGenerator:
         self.makeSpectrum()
         self.pos = self.N//2
         self.state = self.sigbuffer[self.pos:self.pos+self.avesize*1024]
+        self.selections = []
+        self.score = 0
+        self.deaths = 0
 
     def render(self):
         stepmult = self.stepsize//self.avesize
@@ -136,13 +148,6 @@ class SignalGenerator:
             if rem:
                 rem_list.append(sel)
         for sel in rem_list:
-            ss = int(self.pos + sel.startpos*self.avesize)
-            ee = int(self.pos + sel.endpos*self.avesize)
-            ns = sel.calcScore(self.sigbuffer[ss:ee])
-            if ns < 0:
-                self.deaths += 1
-            else:
-                self.score += ns
             self.selections.remove(sel)
         mag = self.aveData(np.abs(self.state))
         for x in range(1,len(mag)):
