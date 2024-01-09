@@ -68,16 +68,16 @@ if __name__ == "__main__":
 
     state = env.reset()
     playing = True
-    flap = 0
+    select_action = 0
     while playing:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
             elif event.type == pygame.KEYDOWN:
-                flap = 1
+                select_action = 1
             elif event.type == pygame.KEYUP:
-                flap = 0
+                select_action = 0
 
         reward, state, done = env.step(flap)
         if done:
