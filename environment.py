@@ -79,7 +79,7 @@ if __name__ == "__main__":
             elif event.type == pygame.KEYUP:
                 select_action = 0
 
-        reward, state, done = env.step(flap)
+        reward, state, done = env.step(select_action)
         if done:
             playing = False
         # clock.tick(20)

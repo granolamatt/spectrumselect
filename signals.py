@@ -54,20 +54,28 @@ class SignalSelection:
             return 0
         self.scored = True
         timesig = np.fft.ifft(bins,n=len(bins)*2)
+        # bins_orth = bins.copy()
+        # bins_orth[len(bins)//2] *= -1
+        # baudsig = np.fft.ifft(bins_orth,n=len(bins)*2)
+        # score = len(timesig) / 1048576
         start = len(timesig)//32
         freqsig = np.fft.fft(timesig*np.conj(timesig))[start:len(timesig)//2]
+        # freqsig2 = np.fft.fft(timesig*baudsig)[start:len(timesig)//2]
+        # freqsig2 = np.flip(freqsig2)
+        ratio = np.max(np.abs(freqsig)) / np.mean(abs(freqsig))
         baud = len(timesig)/(np.argmax(np.abs(freqsig)) + start) / 2
-        if baud > 3 or baud < 1:
+        # print("ratio is", ratio)
+        if baud > 3 or baud < 1 or ratio < 8:
             return -1
-        score = 10 - np.abs(1.3 - baud)
-        print("Score is", score)
+        score = 10 - 6*np.abs(1.3 - baud)
+        # print("Score is", score, "ratio", ratio)
         
-
         # plt.figure()
         # plt.subplot(2,1,1)
-        # plt.plot(np.abs(bins))
-        # plt.subplot(2,1,2)
         # plt.plot(np.abs(freqsig))
+        # plt.subplot(2,1,2)
+        # plt.plot(np.abs(freqsig2))
+        # plt.plot((np.abs(freqsig)/np.abs(freqsig2)))
         # plt.title(str(baud))
         # plt.show()
         return score
