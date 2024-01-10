@@ -66,7 +66,9 @@ class SignalSelection:
         baud = len(timesig)/(np.argmax(np.abs(freqsig)) + start) / 2
         # print("ratio is", ratio)
         if baud > 3 or baud < 1 or ratio < 8:
-            return -1
+            #print("Score is", -len(timesig) / 1e4)
+
+            return -len(timesig) / 1e4
         score = 10 - 6*np.abs(1.3 - baud)
         # print("Score is", score, "ratio", ratio)
         
@@ -130,6 +132,7 @@ class SignalGenerator:
             ns = sel.calcScore(self.sigbuffer[ss:ee])
             if ns < 0:
                 self.deaths += 1
+                self.score += -ns
             else:
                 self.score += ns
 

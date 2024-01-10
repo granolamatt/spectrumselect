@@ -46,8 +46,10 @@ class Policy(nn.Module):
     """
     def __init__(self):
         super(Policy, self).__init__()
-        self.affine1 = nn.Linear(65536*2, 128)
-        self.affine2 = nn.Linear(128, 128)
+        self.affine1 = nn.Linear(65536*2, 2048)
+        self.affine2 = nn.Linear(2048, 128)
+        self.affine3 = nn.Linear(128, 128)
+
 
         # actor's layer
         self.action_head = nn.Linear(128, 2)
@@ -65,6 +67,7 @@ class Policy(nn.Module):
         """
         x = F.relu(self.affine1(x))
         x = F.relu(self.affine2(x))
+        x = F.relu(self.affine3(x))
 
         # actor: choses action to take from state s_t
         # by returning probability of each action

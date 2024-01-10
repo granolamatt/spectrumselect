@@ -50,9 +50,10 @@ class Environment:
         self.signal_generator.step()
         # if self.render_on:
         self.render()
-        next_state = self.signal_generator.state.astype(np.complex64).view(np.float32)
+        next_state = self.signal_generator.state.astype(np.complex64).view(np.float32) * 100
         reward = self.signal_generator.score
-        done = self.signal_generator.deaths >= 3
+        #print("Reward is", reward)
+        done = self.signal_generator.deaths >= 1
         return reward, next_state, done
     
 if __name__ == "__main__":
