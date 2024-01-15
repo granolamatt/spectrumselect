@@ -20,35 +20,25 @@ class Environment:
 
     def reset(self):
         self.signal_generator.reset()
-        if self.render_on:
-            self.render()
+        #if self.render_on:
+        self.signal_generator.step()
+        self.signal_generator.step()
+        self.render()
         return self.signal_generator.state.astype(np.complex64).view(np.float32)   
 
     def render(self):
         self.screen.fill((0, 200, 255))
         pygame.draw.rect(self.screen, (0, 0, 255), self.agentRect)
         self.signal_generator.render()
-        pygame.display.flip()
-    
-    def move_agent(self, action):
+        pygame.display.flip()    
         
-        if action == 1:
-            if not self.selbox:
-                self.signal_generator.setStart()
-                self.selbox = True
-        else:
-            if self.selbox:
-                self.signal_generator.setEnd()
-                self.selbox = False
-    
-        
-    def step(self, action):
-        self.move_agent(action)
+    def step(self, actions, actione):
+        # self.signal_generator.move_agent(action)
+        self.signal_generator.move_agent(actions.clone().detach().numpy()[0],actione.clone().detach().numpy()[0])
         #print('reward', reward)
         
-
+        #next_state = self.signal_generator.state.astype(np.complex64).view(np.float32) * 100
         self.signal_generator.step()
-        # if self.render_on:
         self.render()
         next_state = self.signal_generator.state.astype(np.complex64).view(np.float32) * 100
         reward = self.signal_generator.score
@@ -69,16 +59,16 @@ if __name__ == "__main__":
 
     state = env.reset()
     playing = True
-    select_action = 0
+    select_action = []
     while playing:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
             elif event.type == pygame.KEYDOWN:
-                select_action = 1
+                select_action = [0,0.25]
             elif event.type == pygame.KEYUP:
-                select_action = 0
+                select_action = [0.0,0.25]
 
         reward, state, done = env.step(select_action)
         if done:

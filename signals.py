@@ -29,19 +29,18 @@ class burst_object:
 
 
 class SignalSelection:
-    def __init__(self,startpos, horizontal_location):
-        self.startpos = horizontal_location
-        self.endpos = horizontal_location
+    def __init__(self,start_location, end_location):
+        self.startpos = start_location
+        self.endpos = end_location
+        # print("start",start_location,"end",end_location)
         self.endit = False
         self.scored = False
     
     def render(self, screen, step):
-        self.startpos -= step
-        if self.endit:
-            self.endpos -= step
         horsize = (self.endpos - self.startpos)
         rect = pygame.Rect(self.startpos, 0, horsize, 600)
         pygame.draw.rect(screen, (255, 255, 255), rect)
+        self.startpos += step
         if self.endpos < 0:
             return True
         return False
@@ -52,7 +51,10 @@ class SignalSelection:
     def calcScore(self, bins):
         if self.scored:
             return 0
+        if len(bins) == 0:
+            return 0
         self.scored = True
+        # print(len(bins))
         timesig = np.fft.ifft(bins,n=len(bins)*2)
         # bins_orth = bins.copy()
         # bins_orth[len(bins)//2] *= -1
@@ -64,22 +66,23 @@ class SignalSelection:
         # freqsig2 = np.flip(freqsig2)
         ratio = np.max(np.abs(freqsig)) / np.mean(abs(freqsig))
         baud = len(timesig)/(np.argmax(np.abs(freqsig)) + start) / 2
-        # print("ratio is", ratio)
-        if baud > 3 or baud < 1 or ratio < 8:
-            #print("Score is", -len(timesig) / 1e4)
-
-            return -len(timesig) / 1e4
-        score = 10 - 6*np.abs(1.3 - baud)
-        # print("Score is", score, "ratio", ratio)
-        
         # plt.figure()
-        # plt.subplot(2,1,1)
-        # plt.plot(np.abs(freqsig))
-        # plt.subplot(2,1,2)
-        # plt.plot(np.abs(freqsig2))
+        #plt.subplot(2,1,1)
+        # plt.plot(np.abs(np.fft.fft(timesig)))
+        #plt.subplot(2,1,2)
+        #plt.plot(np.abs(freqsig2))
         # plt.plot((np.abs(freqsig)/np.abs(freqsig2)))
         # plt.title(str(baud))
         # plt.show()
+        #print("baud",baud,"ratio",ratio)
+
+        if baud > 4 or baud < 1 or ratio < 8:
+            #print("Score is", -len(timesig) / 1e4)
+
+            return -1# -self.startpos/1e6 #len(timesig) / 1e6
+        score = 40 - 6*np.abs(1.3 - baud)
+        print("!!!!!!!! Score is", score, "ratio", ratio)
+        
         return score
 
     def __eq__(self,other):
@@ -93,7 +96,7 @@ class SignalGenerator:
         self.sigbuffer = np.random.normal(0,1/self.N,self.N) + 1j*np.random.normal(0,1/self.N,self.N)
         self.pos = self.N//2
         self.selections = []
-        self.stepsize = 128
+        self.stepsize = 1024 * 64
         self.avesize = 64
         self.score = 0
         self.deaths = 0
@@ -113,16 +116,25 @@ class SignalGenerator:
         self.sigbuffer[self.N//2:] = np.random.normal(0,1/self.N,self.N//2) + 1j*np.random.normal(0,1/self.N,self.N//2)
         # self.sigbuffer = np.zeros(N, dtype=np.complex64)
         num = np.random.randint(1,20)
-        for cnt in range(num):
-            offset = np.random.randint(20,self.N//4) * 2
+        laststart = 0
+        #for cnt in range(num):
+        while laststart < self.N//2:
+            #offset = np.random.randint(20,self.N//4) * 2
+            roff = np.random.randint(20,1000) * 2
+            offset = roff + laststart
             siglen = np.random.randint(20,self.N//64) * 2
             bo = burst_object(siglen)
             samps = bo.makeBurst()
             if self.N//2+len(samps)+offset < len(self.sigbuffer):
                 self.sigbuffer[self.N//2 + offset:self.N//2+len(samps)+offset] += samps
-            
-    def setStart(self):
-        self.selections.append(SignalSelection(self.pos,self.agent_horizontal_location))
+            laststart += len(samps) + roff
+    def move_agent(self, s,e):
+        if e < s:
+            q = s
+            s = e
+            e = q
+        self.selections.append(SignalSelection(s,e))
+        self.setEnd()
 
     def setEnd(self):
         for sel in self.selections:

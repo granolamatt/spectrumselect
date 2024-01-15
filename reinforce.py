@@ -16,7 +16,7 @@ from environment import Environment
 
 
 parser = argparse.ArgumentParser(description='PyTorch REINFORCE example')
-parser.add_argument('--gamma', type=float, default=0.99, metavar='G',
+parser.add_argument('--gamma', type=float, default=0.999, metavar='G',
                     help='discount factor (default: 0.99)')
 parser.add_argument('--seed', type=int, default=543, metavar='N',
                     help='random seed (default: 543)')
@@ -27,7 +27,7 @@ parser.add_argument('--log-interval', type=int, default=10, metavar='N',
 args = parser.parse_args()
 
 pygame.init()
-screen_width = 800
+screen_width = 1024
 screen_height = 600
 screen = pygame.display.set_mode((screen_width, screen_height))
 clock = pygame.time.Clock()
@@ -35,23 +35,34 @@ clock = pygame.time.Clock()
 signal_generator = SignalGenerator(screen)
 env = Environment(screen=screen, render_on=True, signal_generator=signal_generator)
 torch.manual_seed(args.seed)
+env.reset()
+
 
 class Policy(nn.Module):
     def __init__(self):
         super(Policy, self).__init__()
-        self.affine1 = nn.Linear(65536*2, 128)
-        self.dropout = nn.Dropout(p=0.6)
-        self.affine2 = nn.Linear(128, 2)
-
+        #self.affine1 = nn.Linear(65536*2, 2048)
+        self.affine1 = nn.Linear(4096, 2048)
+        self.affine2 = nn.Linear(2048, 2048)
+        self.affine3 = nn.Linear(2048, 1024)
+        # self.dropout = nn.Dropout(p=0.6)
+        self.affineS = nn.Linear(1024, 1024)
+        self.affineE = nn.Linear(1024, 1024)
         self.saved_log_probs = []
+        self.saved_log_probe = []
         self.rewards = []
 
     def forward(self, x):
         x = self.affine1(x)
-        x = self.dropout(x)
+        # x = self.dropout(x)
         x = F.relu(x)
-        action_scores = self.affine2(x)
-        return F.softmax(action_scores, dim=1)
+        x = self.affine2(x)
+        x = F.relu(x)
+        x = self.affine3(x)
+        x = F.relu(x)
+        start_scores = self.affineS(x)
+        end_scores = self.affineE(x)
+        return F.softmax(start_scores, dim=1),F.softmax(end_scores, dim=1)
 
 
 policy = Policy()
@@ -60,12 +71,20 @@ eps = np.finfo(np.float32).eps.item()
 
 
 def select_action(state):
+    state = np.abs(state.astype(np.float32).view(np.complex64))
+    state = state.reshape((-1,16))
+    state = np.mean(state, axis=1)
+    print("min",np.min(state),"max",np.max(state))
     state = torch.from_numpy(state).float().unsqueeze(0)
-    probs = policy(state)
-    m = Categorical(probs)
-    action = m.sample()
-    policy.saved_log_probs.append(m.log_prob(action))
-    return action.item()
+    sprobs,eprobs = policy(state)
+    m = Categorical(sprobs)
+    n = Categorical(eprobs)
+    actions = m.sample()
+    actione = n.sample()
+
+    policy.saved_log_probs.append(sprobs)
+    policy.saved_log_probe.append(eprobs)
+    return actions, actione
 
 
 def finish_episode():
@@ -75,16 +94,21 @@ def finish_episode():
     for r in policy.rewards[::-1]:
         R = r + args.gamma * R
         returns.appendleft(R)
+    if len(returns) < 10:
+        return
     returns = torch.tensor(returns)
     returns = (returns - returns.mean()) / (returns.std() + eps)
-    for log_prob, R in zip(policy.saved_log_probs, returns):
-        policy_loss.append(-log_prob * R)
+    
+    for log_probs, log_probe, R in zip(policy.saved_log_probs,policy.saved_log_probe, returns):
+        policy_loss.append(-log_probs * R + -log_probe * R)
     optimizer.zero_grad()
+    #print("policy loss",policy_loss)
     policy_loss = torch.cat(policy_loss).sum()
     policy_loss.backward()
     optimizer.step()
     del policy.rewards[:]
     del policy.saved_log_probs[:]
+    del policy.saved_log_probe[:]
 
 
 def main():
@@ -93,8 +117,8 @@ def main():
         state = env.reset()
         ep_reward = 0
         for t in range(1, 10000):  # Don't infinite loop while learning
-            action = select_action(state)
-            reward, state, done = env.step(action)
+            actions,actione = select_action(state)
+            reward, state, done = env.step(actions,actione)
             #print(state, reward)
             if args.render:
                 env.render()

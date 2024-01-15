@@ -28,7 +28,7 @@ parser.add_argument('--log-interval', type=int, default=10, metavar='N',
 args = parser.parse_args()
 
 pygame.init()
-screen_width = 800
+screen_width = 1024
 screen_height = 600
 screen = pygame.display.set_mode((screen_width, screen_height))
 clock = pygame.time.Clock()
@@ -71,7 +71,8 @@ class Policy(nn.Module):
 
         # actor: choses action to take from state s_t
         # by returning probability of each action
-        action_prob = F.softmax(self.action_head(x), dim=-1)
+        # action_prob = F.softmax(self.action_head(x), dim=-1)
+        action_prob = self.action_head(x)
 
         # critic: evaluates being in the state s_t
         state_values = self.value_head(x)
